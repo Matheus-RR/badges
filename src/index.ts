@@ -265,7 +265,7 @@ export async function run(): Promise<void> {
       const firstErrMsg = firstErr instanceof Error ? firstErr.message : String(firstErr);
       core.warning(`File content update failed, retrying once: ${firstErrMsg}`);
       // Re-fetch SHA in case the first attempt partially succeeded
-      let retrySha: string | undefined;
+      let retrySha: string | undefined = fileSha; // Fall back to original SHA if re-fetch fails
       try {
         const { data: retryFileData } = await octokit.rest.repos.getContent({
           owner,
