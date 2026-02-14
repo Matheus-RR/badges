@@ -42,6 +42,7 @@ jobs:
 | `pr-title` | Title for the created PR | `chore: update version health badges` |
 | `pr-branch` | Branch name for the PR | `releaserun/badges-update` |
 | `github-token` | GitHub token for creating PRs | `GITHUB_TOKEN` env |
+| `badge-service-url` | Base URL for badge service (for testing/custom deployments) | `https://img.releaserun.com` |
 
 ## Outputs
 
@@ -49,6 +50,9 @@ jobs:
 |--------|-------------|
 | `pr-number` | Number of the created/updated PR |
 | `pr-url` | URL of the created/updated PR |
+| `badges-markdown` | The generated badge markdown |
+| `badges-count` | Number of badges generated |
+| `pr-branch` | The branch name used for the PR |
 
 ## README Markers
 

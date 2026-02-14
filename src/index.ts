@@ -48,6 +48,13 @@ export async function run(): Promise<void> {
     const prTitle = core.getInput('pr-title') || 'chore: update version health badges';
     const prBranch = core.getInput('pr-branch') || 'releaserun/badges-update';
 
+    // Validate pr-branch to prevent ref injection
+    if (/\.\./.test(prBranch) || prBranch.startsWith('/') || prBranch.endsWith('/') ||
+        prBranch.endsWith('.lock') || /[\x00-\x1f\x7f ~^:?*\[\\]/.test(prBranch)) {
+      core.setFailed(`Invalid pr-branch: "${prBranch}". Branch name contains invalid characters.`);
+      return;
+    }
+
     // C4: Validate style parameter
     const style = core.getInput('style') || 'flat';
     const validStyles = ['flat', 'flat-square', 'plastic', 'for-the-badge'];
@@ -108,7 +115,7 @@ export async function run(): Promise<void> {
     // M5: Debug output and set outputs for generated badge data
     core.debug(`Generated badge markdown:\n${badgesMarkdown}`);
     core.setOutput('badges-markdown', badgesMarkdown);
-    core.setOutput('badges-count', products.length.toString());
+    core.setOutput('badges-count', (products.length * badgeTypes.length).toString());
     core.setOutput('pr-branch', prBranch);
 
     // H3: Read README with proper error context
@@ -257,14 +264,28 @@ export async function run(): Promise<void> {
     } catch (firstErr) {
       const firstErrMsg = firstErr instanceof Error ? firstErr.message : String(firstErr);
       core.warning(`File content update failed, retrying once: ${firstErrMsg}`);
-      // NOTE: Consider adding @octokit/plugin-retry for more robust retry logic
+      // Re-fetch SHA in case the first attempt partially succeeded
+      let retrySha: string | undefined;
+      try {
+        const { data: retryFileData } = await octokit.rest.repos.getContent({
+          owner,
+          repo,
+          path: readmePath,
+          ref: prBranch,
+        });
+        if (!Array.isArray(retryFileData) && retryFileData.type === 'file') {
+          retrySha = retryFileData.sha;
+        }
+      } catch {
+        // File doesn't exist on branch yet
+      }
       await octokit.rest.repos.createOrUpdateFileContents({
         owner,
         repo,
         path: readmePath,
         message: prTitle,
         content: Buffer.from(result.content).toString('base64'),
-        sha: fileSha,
+        sha: retrySha,
         branch: prBranch,
       });
     }

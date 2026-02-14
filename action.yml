@@ -40,7 +40,6 @@ inputs:
   badge-service-url:
     description: 'Base URL for badge service (for testing/custom deployments)'
     required: false
-    default: 'https://img.releaserun.com'
 
 outputs:
   pr-number:

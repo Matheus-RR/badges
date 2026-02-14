@@ -225,6 +225,34 @@ describe('run() - input validation', () => {
     );
   });
 
+  test('rejects invalid pr-branch with path traversal', async () => {
+    setupInputs({
+      products: 'python:3.12',
+      'pr-branch': '../tags/v1.0.0',
+      'github-token': 'fake-token',
+    });
+
+    await run();
+
+    expect(mockSetFailed).toHaveBeenCalledWith(
+      expect.stringContaining('Invalid pr-branch'),
+    );
+  });
+
+  test('rejects pr-branch ending with .lock', async () => {
+    setupInputs({
+      products: 'python:3.12',
+      'pr-branch': 'my-branch.lock',
+      'github-token': 'fake-token',
+    });
+
+    await run();
+
+    expect(mockSetFailed).toHaveBeenCalledWith(
+      expect.stringContaining('Invalid pr-branch'),
+    );
+  });
+
   test('rejects path traversal in readme-path', async () => {
     setupInputs({
       products: 'python:3.12',
@@ -287,8 +315,25 @@ describe('run() - product parsing and badge generation', () => {
     await run();
 
     expect(mockSetOutput).toHaveBeenCalledWith('badges-markdown', expect.any(String));
-    expect(mockSetOutput).toHaveBeenCalledWith('badges-count', '1');
+    expect(mockSetOutput).toHaveBeenCalledWith('badges-count', '1'); // 1 product x 1 type
     expect(mockSetOutput).toHaveBeenCalledWith('pr-branch', 'releaserun/badges-update');
+  });
+
+  test('badges-count reflects products * badge types', async () => {
+    setupInputs({
+      products: 'python:3.12\nnode:20',
+      'badge-types': 'health,eol,cve',
+      'readme-path': '/workspace/README.md',
+      'github-token': 'fake-token',
+    });
+    setupFs(README_WITH_MARKERS);
+
+    const mockOctokit = makeOctokit();
+    mockGetOctokit.mockReturnValue(mockOctokit);
+
+    await run();
+
+    expect(mockSetOutput).toHaveBeenCalledWith('badges-count', '6'); // 2 products x 3 types
   });
 });
 
@@ -663,7 +708,7 @@ describe('run() - file content commit', () => {
     );
   });
 
-  test('retries once on commit failure', async () => {
+  test('retries once on commit failure and re-fetches SHA', async () => {
     setupInputs({
       products: 'python:3.12',
       'readme-path': '/workspace/README.md',
@@ -675,6 +720,10 @@ describe('run() - file content commit', () => {
     mockOctokit.rest.repos.createOrUpdateFileContents
       .mockRejectedValueOnce(new Error('Server Error'))
       .mockResolvedValueOnce({});
+    // On retry, getContent is called again to re-fetch SHA
+    mockOctokit.rest.repos.getContent
+      .mockResolvedValueOnce({ data: { type: 'file', sha: 'file-sha-123' } })
+      .mockResolvedValueOnce({ data: { type: 'file', sha: 'updated-sha-456' } });
     mockGetOctokit.mockReturnValue(mockOctokit);
 
     await run();
@@ -683,6 +732,10 @@ describe('run() - file content commit', () => {
       expect.stringContaining('File content update failed, retrying once'),
     );
     expect(mockOctokit.rest.repos.createOrUpdateFileContents).toHaveBeenCalledTimes(2);
+    // Verify the retry used the re-fetched SHA
+    expect(mockOctokit.rest.repos.getContent).toHaveBeenCalledTimes(2);
+    const retryCall = mockOctokit.rest.repos.createOrUpdateFileContents.mock.calls[1][0];
+    expect(retryCall.sha).toBe('updated-sha-456');
   });
 
   test('commits file with base64 content', async () => {
