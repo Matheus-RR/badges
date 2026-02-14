@@ -1,0 +1,59 @@
+name: 'ReleaseRun Version Health Badges'
+description: 'Automatically update version health badges in your README via PR'
+author: 'ReleaseRun'
+
+branding:
+  icon: 'shield'
+  color: 'blue'
+
+inputs:
+  products:
+    description: 'Multiline list of product:version pairs (e.g. "python:3.12")'
+    required: true
+  badge-types:
+    description: 'Comma-separated badge types: health, eol, freshness, cve, cloud'
+    required: false
+    default: 'health'
+  readme-path:
+    description: 'Path to README file'
+    required: false
+    default: 'README.md'
+  style:
+    description: 'Badge style (flat, flat-square, plastic, for-the-badge)'
+    required: false
+    default: 'flat'
+  link-to:
+    description: 'Where badges link to: badge-page, releaserun, or none'
+    required: false
+    default: 'badge-page'
+  pr-title:
+    description: 'Title for the created PR'
+    required: false
+    default: 'chore: update version health badges'
+  pr-branch:
+    description: 'Branch name for the PR'
+    required: false
+    default: 'releaserun/badges-update'
+  github-token:
+    description: 'GitHub token for creating PRs (defaults to GITHUB_TOKEN)'
+    required: false
+  badge-service-url:
+    description: 'Base URL for badge service (for testing/custom deployments)'
+    required: false
+    default: 'https://img.releaserun.com'
+
+outputs:
+  pr-number:
+    description: 'The number of the created/updated PR'
+  pr-url:
+    description: 'The URL of the created/updated PR'
+  badges-markdown:
+    description: 'The generated badge markdown'
+  badges-count:
+    description: 'Number of badges generated'
+  pr-branch:
+    description: 'The branch name used for the PR'
+
+runs:
+  using: 'node20'
+  main: 'dist/index.js'
